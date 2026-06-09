@@ -34,8 +34,25 @@ jobs:
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
 
-          PDF=$(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.pdf$' | head -n 1 || true)
-          IPYNB=$(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' | head -n 1 || true)
+          if [[ ${#CHANGED[@]} -eq 0 ]]; then
+            echo "No NLPDE chapter files changed in this PR update."
+            exit 1
+          fi
+
+          mapfile -t PDF_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.pdf$' || true)
+          mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' || true)
+
+          if [[ ${#PDF_FILES[@]} -ne 1 || ${#IPYNB_FILES[@]} -ne 1 ]]; then
+            echo "Expected exactly one chapter PDF and one notebook update."
+            echo "PDF files found: ${#PDF_FILES[@]}"
+            printf '%s\n' "${PDF_FILES[@]:-<none>}"
+            echo "Notebook files found: ${#IPYNB_FILES[@]}"
+            printf '%s\n' "${IPYNB_FILES[@]:-<none>}"
+            exit 1
+          fi
+
+          PDF="${PDF_FILES[0]}"
+          IPYNB="${IPYNB_FILES[0]}"
 
           if [[ -z "$PDF" || -z "$IPYNB" ]]; then
             echo "This PR must include both a chapter PDF and its notebook in NLPDE/."
@@ -97,5 +114,8 @@ jobs:
     needs: [content-coverage-agent, interactivity-agent]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Load author agent instructions
         run: cat .github/agent-instructions/chapter-author-agent.md
