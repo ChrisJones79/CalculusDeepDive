@@ -1,0 +1,178 @@
+name: Chapter PR Agent Cycle
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "NLPDE/**"
+      - ".github/agent-instructions/**"
+      - ".github/workflows/chapter-pr-agent-cycle.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  chapter-context-check:
+    name: Verify chapter ↔ notebook mapping
+    runs-on: ubuntu-latest
+    outputs:
+      chapter_pdf: ${{ steps.detect.outputs.chapter_pdf }}
+      chapter_notebook: ${{ steps.detect.outputs.chapter_notebook }}
+      skip_review: ${{ steps.detect.outputs.skip_review }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed chapter assets
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d NLPDE ]]; then
+            echo "NLPDE directory not found in this checkout; skipping chapter review jobs."
+            echo "skip_review=true" >> "$GITHUB_OUTPUT"
+            echo "chapter_pdf=" >> "$GITHUB_OUTPUT"
+            echo "chapter_notebook=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          DIFF_OUTPUT="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)" || {
+            echo "Failed to compute NLPDE file diff for base=$BASE_SHA head=$HEAD_SHA."
+            exit 1
+          }
+          mapfile -t CHANGED <<< "$DIFF_OUTPUT"
+
+          if [[ ${#CHANGED[@]} -eq 0 ]]; then
+            echo "No files changed in NLPDE/. Workflow triggered by agent instruction or workflow updates only."
+            echo "skip_review=true" >> "$GITHUB_OUTPUT"
+            echo "chapter_pdf=" >> "$GITHUB_OUTPUT"
+            echo "chapter_notebook=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip_review=false" >> "$GITHUB_OUTPUT"
+
+          mapfile -t PDF_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/[^/]*\.pdf$' || true)
+          mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/[^/]*\.ipynb$' || true)
+
+          if [[ ${#PDF_FILES[@]} -eq 0 && ${#IPYNB_FILES[@]} -eq 0 ]]; then
+            echo "No chapter PDF or notebook files found in NLPDE/ changes."
+            echo "Update the chapter PDF and notebook pair in the same PR."
+            exit 1
+          fi
+
+          if [[ ${#PDF_FILES[@]} -ne 1 || ${#IPYNB_FILES[@]} -ne 1 ]]; then
+            echo "Expected exactly one chapter PDF and one notebook update per PR."
+            echo "Found ${#PDF_FILES[@]} PDF file(s):"
+            if [[ ${#PDF_FILES[@]} -eq 0 ]]; then
+              echo "<none>"
+            else
+              printf '%s\n' "${PDF_FILES[@]}"
+            fi
+            echo "Found ${#IPYNB_FILES[@]} notebook file(s):"
+            if [[ ${#IPYNB_FILES[@]} -eq 0 ]]; then
+              echo "<none>"
+            else
+              printf '%s\n' "${IPYNB_FILES[@]}"
+            fi
+            exit 1
+          fi
+
+          PDF="${PDF_FILES[0]}"
+          IPYNB="${IPYNB_FILES[0]}"
+
+          PDF_BASE="$(basename "$PDF" .pdf)"
+          IPYNB_BASE="$(basename "$IPYNB" .ipynb)"
+          if [[ "$PDF_BASE" != "$IPYNB_BASE" ]]; then
+            echo "Expected 1:1 chapter naming, but found:"
+            echo "PDF: $PDF_BASE"
+            echo "Notebook: $IPYNB_BASE"
+            echo "Use matching base names, for example: NLPDE_Ch2.pdf and NLPDE_Ch2.ipynb"
+            exit 1
+          fi
+
+          echo "chapter_pdf=$PDF" >> "$GITHUB_OUTPUT"
+          echo "chapter_notebook=$IPYNB" >> "$GITHUB_OUTPUT"
+
+  content-coverage-agent:
+    name: Content coverage review
+    needs: chapter-context-check
+    if: needs.chapter-context-check.outputs.skip_review != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load content agent instructions
+        id: content_prompt
+        shell: bash
+        run: |
+          {
+            echo "prompt<<EOF"
+            cat .github/agent-instructions/content-coverage-agent.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Review chapter coverage (placeholder)
+        env:
+          CONTENT_AGENT_PROMPT: ${{ steps.content_prompt.outputs.prompt }}
+        run: |
+          echo "Integrate your preferred PR review agent here."
+          echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
+          echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
+          echo "Goal: report missing concepts from chapter in notebook (additional relevant material is allowed)."
+          echo "Instruction payload size: ${#CONTENT_AGENT_PROMPT} characters"
+
+  interactivity-agent:
+    name: Interactivity and visualization review
+    needs: chapter-context-check
+    if: needs.chapter-context-check.outputs.skip_review != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load interactivity agent instructions
+        id: interactivity_prompt
+        shell: bash
+        run: |
+          {
+            echo "prompt<<EOF"
+            cat .github/agent-instructions/interactivity-agent.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Suggest interactive improvements (placeholder)
+        env:
+          INTERACTIVITY_AGENT_PROMPT: ${{ steps.interactivity_prompt.outputs.prompt }}
+        run: |
+          echo "Integrate your preferred PR review agent here."
+          echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
+          echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
+          echo "Goal: suggest concrete plot/interactivity additions that improve learning outcomes."
+          echo "Instruction payload size: ${#INTERACTIVITY_AGENT_PROMPT} characters"
+
+  author-revision-loop:
+    name: Author agent revision loop guidance
+    needs: [chapter-context-check, content-coverage-agent, interactivity-agent]
+    if: needs.chapter-context-check.outputs.skip_review != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load author agent instructions
+        run: cat .github/agent-instructions/chapter-author-agent.md
+
+  config-only-update:
+    name: Config-only update notice
+    needs: chapter-context-check
+    if: needs.chapter-context-check.outputs.skip_review == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain skip
+        run: echo "Skipping chapter review jobs because no NLPDE chapter files changed."
