@@ -35,7 +35,7 @@ jobs:
           mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
 
           if [[ ${#CHANGED[@]} -eq 0 ]]; then
-            echo "Failed to detect NLPDE chapter changes; git diff returned no files."
+            echo "No files changed in NLPDE/, but workflow was triggered by non-NLPDE path filters."
             exit 1
           fi
 
@@ -45,9 +45,17 @@ jobs:
           if [[ ${#PDF_FILES[@]} -ne 1 || ${#IPYNB_FILES[@]} -ne 1 ]]; then
             echo "Expected exactly one chapter PDF and one notebook update per PR."
             echo "Found ${#PDF_FILES[@]} PDF file(s):"
-            printf '%s\n' "${PDF_FILES[@]:-<none>}"
+            if [[ ${#PDF_FILES[@]} -eq 0 ]]; then
+              echo "<none>"
+            else
+              printf '%s\n' "${PDF_FILES[@]}"
+            fi
             echo "Found ${#IPYNB_FILES[@]} notebook file(s):"
-            printf '%s\n' "${IPYNB_FILES[@]:-<none>}"
+            if [[ ${#IPYNB_FILES[@]} -eq 0 ]]; then
+              echo "<none>"
+            else
+              printf '%s\n' "${IPYNB_FILES[@]}"
+            fi
             exit 1
           fi
 
@@ -60,7 +68,7 @@ jobs:
             echo "Expected 1:1 chapter naming, but found:"
             echo "PDF: $PDF_BASE"
             echo "Notebook: $IPYNB_BASE"
-            echo "Use matching base names, for example: chapter01.pdf and chapter01.ipynb"
+            echo "Use matching base names, for example: NLPDE_Ch2.pdf and NLPDE_Ch2.ipynb"
             exit 1
           fi
 
