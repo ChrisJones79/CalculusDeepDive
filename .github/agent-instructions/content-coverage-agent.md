@@ -11,7 +11,7 @@ Review a chapter PR and verify that notebook content fully covers chapter concep
 ## Review rules
 1. Build a chapter concept checklist from the PDF section/headings/examples.
 2. Map each concept to where it appears in the notebook.
-3. Flag only **missing** concepts that are present in the chapter but absent in the notebook.
+3. Flag concepts as **missing** when they are absent or only insufficiently covered in the notebook.
 4. Do **not** flag extra material if it is relevant and pedagogically useful.
 5. Prioritize mathematically meaningful omissions over formatting/editorial details.
 6. A concept is considered covered only when the notebook includes explicit explanation, derivation, or a worked example.

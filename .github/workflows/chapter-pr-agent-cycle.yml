@@ -31,6 +31,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ ! -d NLPDE ]]; then
+            echo "NLPDE directory not found in this checkout; skipping chapter review jobs."
+            echo "skip_review=true" >> "$GITHUB_OUTPUT"
+            echo "chapter_pdf=" >> "$GITHUB_OUTPUT"
+            echo "chapter_notebook=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
@@ -46,6 +54,12 @@ jobs:
 
           mapfile -t PDF_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.pdf$' || true)
           mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' || true)
+
+          if [[ ${#PDF_FILES[@]} -eq 0 && ${#IPYNB_FILES[@]} -eq 0 ]]; then
+            echo "No chapter PDF or notebook files found in NLPDE/ changes."
+            echo "Update the chapter PDF and notebook pair in the same PR."
+            exit 1
+          fi
 
           if [[ ${#PDF_FILES[@]} -ne 1 || ${#IPYNB_FILES[@]} -ne 1 ]]; then
             echo "Expected exactly one chapter PDF and one notebook update per PR."
