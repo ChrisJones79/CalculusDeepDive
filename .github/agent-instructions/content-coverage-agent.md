@@ -14,7 +14,8 @@ Review a chapter PR and verify that notebook content fully covers chapter concep
 3. Flag only **missing** concepts that are present in the chapter but absent in the notebook.
 4. Do **not** flag extra material if it is relevant and pedagogically useful.
 5. Prioritize mathematically meaningful omissions over formatting/editorial details.
-6. Treat a concept as missing when it has no explicit explanation, derivation, or worked example in the notebook; mentions only in variable names, comments, or section titles without explanatory text count as insufficient coverage and should be flagged.
+6. A concept is considered covered only when the notebook includes explicit explanation, derivation, or a worked example.
+7. Mentions only in variable names, comments, or section titles without explanatory text count as insufficient coverage and should be flagged.
 
 ## Output format for PR comment
 - Missing concept: `<name>`

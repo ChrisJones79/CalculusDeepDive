@@ -19,6 +19,7 @@ jobs:
     outputs:
       chapter_pdf: ${{ steps.detect.outputs.chapter_pdf }}
       chapter_notebook: ${{ steps.detect.outputs.chapter_notebook }}
+      skip_review: ${{ steps.detect.outputs.skip_review }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,9 +36,13 @@ jobs:
           mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
 
           if [[ ${#CHANGED[@]} -eq 0 ]]; then
-            echo "No files changed in NLPDE/, but workflow was triggered by non-NLPDE path filters."
-            exit 1
+            echo "No files changed in NLPDE/. Workflow triggered by agent instruction or workflow updates only."
+            echo "skip_review=true" >> "$GITHUB_OUTPUT"
+            echo "chapter_pdf=" >> "$GITHUB_OUTPUT"
+            echo "chapter_notebook=" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "skip_review=false" >> "$GITHUB_OUTPUT"
 
           mapfile -t PDF_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.pdf$' || true)
           mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' || true)
@@ -78,6 +83,7 @@ jobs:
   content-coverage-agent:
     name: Content coverage review
     needs: chapter-context-check
+    if: needs.chapter-context-check.outputs.skip_review != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -106,6 +112,7 @@ jobs:
   interactivity-agent:
     name: Interactivity and visualization review
     needs: chapter-context-check
+    if: needs.chapter-context-check.outputs.skip_review != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -133,7 +140,8 @@ jobs:
 
   author-revision-loop:
     name: Author agent revision loop guidance
-    needs: [content-coverage-agent, interactivity-agent]
+    needs: [chapter-context-check, content-coverage-agent, interactivity-agent]
+    if: needs.chapter-context-check.outputs.skip_review != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -141,3 +149,12 @@ jobs:
 
       - name: Load author agent instructions
         run: cat .github/agent-instructions/chapter-author-agent.md
+
+  config-only-update:
+    name: Config-only update notice
+    needs: chapter-context-check
+    if: needs.chapter-context-check.outputs.skip_review == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain skip
+        run: echo "Skipping chapter review jobs because no NLPDE chapter files changed."
