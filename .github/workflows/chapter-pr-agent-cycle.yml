@@ -1,0 +1,101 @@
+name: Chapter PR Agent Cycle
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "NLPDE/**"
+      - ".github/agent-instructions/**"
+      - ".github/workflows/chapter-pr-agent-cycle.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  chapter-context-check:
+    name: Verify chapter ↔ notebook mapping
+    runs-on: ubuntu-latest
+    outputs:
+      chapter_pdf: ${{ steps.detect.outputs.chapter_pdf }}
+      chapter_notebook: ${{ steps.detect.outputs.chapter_notebook }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed chapter assets
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
+
+          PDF=$(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.pdf$' | head -n 1 || true)
+          IPYNB=$(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' | head -n 1 || true)
+
+          if [[ -z "$PDF" || -z "$IPYNB" ]]; then
+            echo "This PR must include both a chapter PDF and its notebook in NLPDE/."
+            echo "Found PDF: ${PDF:-<none>}"
+            echo "Found notebook: ${IPYNB:-<none>}"
+            exit 1
+          fi
+
+          PDF_BASE="$(basename "$PDF" .pdf)"
+          IPYNB_BASE="$(basename "$IPYNB" .ipynb)"
+          if [[ "$PDF_BASE" != "$IPYNB_BASE" ]]; then
+            echo "Expected 1:1 chapter naming, but found:"
+            echo "PDF: $PDF_BASE"
+            echo "Notebook: $IPYNB_BASE"
+            exit 1
+          fi
+
+          echo "chapter_pdf=$PDF" >> "$GITHUB_OUTPUT"
+          echo "chapter_notebook=$IPYNB" >> "$GITHUB_OUTPUT"
+
+  content-coverage-agent:
+    name: Content coverage review
+    needs: chapter-context-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load content agent instructions
+        run: cat .github/agent-instructions/content-coverage-agent.md
+
+      - name: Review chapter coverage (placeholder)
+        run: |
+          echo "Integrate your preferred PR review agent here."
+          echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
+          echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
+          echo "Goal: report missing concepts from chapter in notebook (extras are allowed)."
+
+  interactivity-agent:
+    name: Interactivity and visualization review
+    needs: chapter-context-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load interactivity agent instructions
+        run: cat .github/agent-instructions/interactivity-agent.md
+
+      - name: Suggest interactive improvements (placeholder)
+        run: |
+          echo "Integrate your preferred PR review agent here."
+          echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
+          echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
+          echo "Goal: suggest concrete plot/interactivity additions that improve learning outcomes."
+
+  author-revision-loop:
+    name: Author agent revision loop guidance
+    needs: [content-coverage-agent, interactivity-agent]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load author agent instructions
+        run: cat .github/agent-instructions/chapter-author-agent.md
