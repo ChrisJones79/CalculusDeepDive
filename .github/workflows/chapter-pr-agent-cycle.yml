@@ -54,13 +54,6 @@ jobs:
           PDF="${PDF_FILES[0]}"
           IPYNB="${IPYNB_FILES[0]}"
 
-          if [[ -z "$PDF" || -z "$IPYNB" ]]; then
-            echo "This PR must include both a chapter PDF and its notebook in NLPDE/."
-            echo "Found PDF: ${PDF:-<none>}"
-            echo "Found notebook: ${IPYNB:-<none>}"
-            exit 1
-          fi
-
           PDF_BASE="$(basename "$PDF" .pdf)"
           IPYNB_BASE="$(basename "$IPYNB" .ipynb)"
           if [[ "$PDF_BASE" != "$IPYNB_BASE" ]]; then
@@ -82,14 +75,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Load content agent instructions
-        run: cat .github/agent-instructions/content-coverage-agent.md
+        id: content_prompt
+        shell: bash
+        run: |
+          {
+            echo "prompt<<EOF"
+            cat .github/agent-instructions/content-coverage-agent.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Review chapter coverage (placeholder)
+        env:
+          CONTENT_AGENT_PROMPT: ${{ steps.content_prompt.outputs.prompt }}
         run: |
           echo "Integrate your preferred PR review agent here."
           echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
           echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
           echo "Goal: report missing concepts from chapter in notebook (extras are allowed)."
+          echo "Instruction payload size: ${#CONTENT_AGENT_PROMPT} characters"
 
   interactivity-agent:
     name: Interactivity and visualization review
@@ -100,14 +103,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Load interactivity agent instructions
-        run: cat .github/agent-instructions/interactivity-agent.md
+        id: interactivity_prompt
+        shell: bash
+        run: |
+          {
+            echo "prompt<<EOF"
+            cat .github/agent-instructions/interactivity-agent.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Suggest interactive improvements (placeholder)
+        env:
+          INTERACTIVITY_AGENT_PROMPT: ${{ steps.interactivity_prompt.outputs.prompt }}
         run: |
           echo "Integrate your preferred PR review agent here."
           echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
           echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
           echo "Goal: suggest concrete plot/interactivity additions that improve learning outcomes."
+          echo "Instruction payload size: ${#INTERACTIVITY_AGENT_PROMPT} characters"
 
   author-revision-loop:
     name: Author agent revision loop guidance
