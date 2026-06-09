@@ -14,6 +14,7 @@ Review a chapter PR and propose notebook improvements that use visualization and
 3. Prefer additions tied directly to chapter learning goals.
 4. Skip cosmetic-only suggestions unless they directly improve conceptual clarity.
 5. Keep recommendations concise and prioritized by educational impact.
+6. Rank educational impact by: (a) concept difficulty in the chapter, (b) likelihood of student misconceptions, and (c) how strongly interactivity clarifies parameter effects or geometric intuition.
 
 ## Output format for PR comment
 - Suggested interactive section: `<title>`

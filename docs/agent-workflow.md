@@ -16,7 +16,7 @@ This repository uses a PR-centered multi-agent loop for chapter development in `
 Workflow file: `.github/workflows/chapter-pr-agent-cycle.yml`
 
 On PR updates affecting `NLPDE/**`, the workflow:
-- Enforces a 1:1 chapter mapping by requiring matching PDF and notebook base names.
+- Enforces a 1:1 chapter mapping by requiring exactly one changed PDF and one changed notebook in `NLPDE/`, with identical filenames before the extension (case-sensitive), e.g., `NLPDE/NLPDE_Ch2.pdf` ↔ `NLPDE/NLPDE_Ch2.ipynb`.
 - Runs content coverage review stage.
 - Runs interactivity review stage.
 - Runs author revision-loop guidance stage.

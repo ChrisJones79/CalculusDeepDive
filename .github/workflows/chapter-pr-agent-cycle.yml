@@ -35,7 +35,7 @@ jobs:
           mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
 
           if [[ ${#CHANGED[@]} -eq 0 ]]; then
-            echo "No NLPDE chapter files changed in this PR update."
+            echo "Failed to detect NLPDE chapter changes; git diff returned no files."
             exit 1
           fi
 
@@ -43,10 +43,10 @@ jobs:
           mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' || true)
 
           if [[ ${#PDF_FILES[@]} -ne 1 || ${#IPYNB_FILES[@]} -ne 1 ]]; then
-            echo "Expected exactly one chapter PDF and one notebook update."
-            echo "PDF files found: ${#PDF_FILES[@]}"
+            echo "Expected exactly one chapter PDF and one notebook update per PR."
+            echo "Found ${#PDF_FILES[@]} PDF file(s):"
             printf '%s\n' "${PDF_FILES[@]:-<none>}"
-            echo "Notebook files found: ${#IPYNB_FILES[@]}"
+            echo "Found ${#IPYNB_FILES[@]} notebook file(s):"
             printf '%s\n' "${IPYNB_FILES[@]:-<none>}"
             exit 1
           fi
@@ -60,6 +60,7 @@ jobs:
             echo "Expected 1:1 chapter naming, but found:"
             echo "PDF: $PDF_BASE"
             echo "Notebook: $IPYNB_BASE"
+            echo "Use matching base names, for example: chapter01.pdf and chapter01.ipynb"
             exit 1
           fi
 
@@ -91,7 +92,7 @@ jobs:
           echo "Integrate your preferred PR review agent here."
           echo "Context PDF: ${{ needs.chapter-context-check.outputs.chapter_pdf }}"
           echo "Context notebook: ${{ needs.chapter-context-check.outputs.chapter_notebook }}"
-          echo "Goal: report missing concepts from chapter in notebook (extras are allowed)."
+          echo "Goal: report missing concepts from chapter in notebook (additional relevant material is allowed)."
           echo "Instruction payload size: ${#CONTENT_AGENT_PROMPT} characters"
 
   interactivity-agent:
