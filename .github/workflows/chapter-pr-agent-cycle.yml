@@ -41,7 +41,11 @@ jobs:
 
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          mapfile -t CHANGED < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)
+          DIFF_OUTPUT="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- NLPDE)" || {
+            echo "Failed to compute NLPDE file diff for base=$BASE_SHA head=$HEAD_SHA."
+            exit 1
+          }
+          mapfile -t CHANGED <<< "$DIFF_OUTPUT"
 
           if [[ ${#CHANGED[@]} -eq 0 ]]; then
             echo "No files changed in NLPDE/. Workflow triggered by agent instruction or workflow updates only."
@@ -52,8 +56,8 @@ jobs:
           fi
           echo "skip_review=false" >> "$GITHUB_OUTPUT"
 
-          mapfile -t PDF_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.pdf$' || true)
-          mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/.*\.ipynb$' || true)
+          mapfile -t PDF_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/[^/]*\.pdf$' || true)
+          mapfile -t IPYNB_FILES < <(printf '%s\n' "${CHANGED[@]}" | grep -E '^NLPDE/[^/]*\.ipynb$' || true)
 
           if [[ ${#PDF_FILES[@]} -eq 0 && ${#IPYNB_FILES[@]} -eq 0 ]]; then
             echo "No chapter PDF or notebook files found in NLPDE/ changes."
